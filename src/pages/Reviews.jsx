@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import reviewsData from "../reviews.json";
-import { db } from "../firebase";
+import { db, auth } from "../firebase";
 import {
   addDoc,
   collection,
@@ -8,13 +7,38 @@ import {
   getDocs,
   query,
   where,
+  orderBy,
 } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 import Swal from "sweetalert2";
 import AddReviewForm from "../components/AddReviewForm";
+import { useNavigate } from "react-router-dom";
 
 const Reviews = () => {
   const [selectedCourse, setSelectedCourse] = useState(null);
-  const [reviews, setReviews] = useState(reviewsData);
+  const [firebaseReviews, setFirebaseReviews] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userDisplayName, setUserDisplayName] = useState("");
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    import("../reviews.json").then((data) => {
+      setCourses(data.default);
+    });
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setIsAuthenticated(true);
+        setUserDisplayName(user.displayName);
+      } else {
+        setIsAuthenticated(false);
+        setUserDisplayName("");
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const handleViewReviews = (course) => {
     setSelectedCourse(course);
@@ -25,6 +49,10 @@ const Reviews = () => {
   };
 
   const handleAddReview = async (newReview) => {
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
+    }
     try {
       if (!selectedCourse || !selectedCourse.id) {
         throw new Error("Course ID is undefined");
@@ -32,6 +60,7 @@ const Reviews = () => {
       await addDoc(collection(db, "reviews"), {
         ...newReview,
         courseId: selectedCourse.id,
+        author: userDisplayName, // Use the user's display name
         timestamp: serverTimestamp(),
       });
       Swal.fire("Успешно", "Отзыв успешно добавлен", "success");
@@ -47,19 +76,14 @@ const Reviews = () => {
     const reviewsCollection = collection(db, "reviews");
     const q = query(
       reviewsCollection,
-      where("courseId", "==", selectedCourse.id)
+      where("courseId", "==", selectedCourse.id),
+      orderBy("timestamp", "desc") // Сортировка по времени создания в порядке убывания
     );
     try {
       const querySnapshot = await getDocs(q);
       const reviewsData = querySnapshot.docs.map((doc) => doc.data());
-      console.log("Fetched reviews:", reviewsData); // Добавьте это для отладки
-      setReviews((prevReviews) =>
-        prevReviews.map((course) =>
-          course.id === selectedCourse.id
-            ? { ...course, reviews: [...course.reviews, ...reviewsData] }
-            : course
-        )
-      );
+      console.log("Fetched reviews:", reviewsData);
+      setFirebaseReviews(reviewsData);
     } catch (error) {
       console.error("Error fetching reviews:", error);
       Swal.fire("Ошибка", "Не удалось загрузить отзывы", "error");
@@ -78,19 +102,27 @@ const Reviews = () => {
         <a href="/">
           Главная - <span className="text-[#A6A6A6]">Отзывы-курсов</span>
         </a>
-        <div className="flex items-center gap-[50px]">
+        <div className="flex items-center justify-between gap-[50px]">
           <div>
+            <button
+              className="text-white bg-primary px-[46px] rounded-[100px] h-[50px] font-semibold mt-[20px]"
+              onClick={handleBack}
+            >
+              Назад
+            </button>
             <h1 className="text-[36px] font-semibold mt-[10px]">
               Отзывы о курсах
             </h1>
             <p>Оценки качества курсов от пользователей.</p>
           </div>
-          <button
-            className="text-white bg-primary px-[46px] rounded-[100px] h-[50px] font-semibold mt-[20px]"
-            onClick={handleBack}
-          >
-            Назад
-          </button>
+          <div className="bg-[#F6F7FF] rounded-[20px] inline-flex flex-col items-center max-w-[350px] p-[20px] h-full">
+            <p className="text-center">{selectedCourse.info}</p>
+            <div>
+              <button className="text-white bg-primary px-[46px] py-[13px] rounded-[100px] font-semibold mt-[20px]">
+                Узнать больше о курсе
+              </button>
+            </div>
+          </div>
         </div>
         <div className="mt-[30px]">
           <h2 className="text-[24px] font-semibold">{selectedCourse.title}</h2>
@@ -106,14 +138,20 @@ const Reviews = () => {
             </div>
           </div>
           <div className="text-[#8C8C8C]">
-            {selectedCourse.reviews.length} отзывов от пользователей
+            {firebaseReviews.length} отзывов от пользователей
+          </div>
+          <div className="my-[20px]">
+            <AddReviewForm
+              courseId={selectedCourse.id}
+              onAddReview={handleAddReview}
+            />
           </div>
           <div className="mt-[20px] inline-flex w-full gap-[100px]">
-            <div>
-              {selectedCourse.reviews.map((review, index) => (
+            <div className="max-w-[800px] w-full">
+              {firebaseReviews.map((review, index) => (
                 <div
                   key={index}
-                  className="bg-[#F6F7FF] rounded-[5px] px-[40px] py-[32px] w-full mb-[20px]"
+                  className="bg-[#F6F7FF] rounded-[5px] px-[40px] py-[32px] mb-[20px] w-full"
                 >
                   <div className="flex gap-[20px] items-center justify-between">
                     <h2 className="text-[24px] font-bold">{review.title}</h2>
@@ -126,7 +164,7 @@ const Reviews = () => {
                   <div className="mt-[50px]">
                     <p>{review.text}</p>
                     <p className="mt-[20px]">
-                      {review.author}, {review.date}
+                      {review.author} {review.date}
                     </p>
                     <button
                       href="#"
@@ -138,20 +176,8 @@ const Reviews = () => {
                 </div>
               ))}
             </div>
-            <div className="bg-[#F6F7FF] rounded-[20px] inline-flex flex-col items-center max-w-[350px] p-[20px] h-full">
-              <p className="text-center">{selectedCourse.info}</p>
-              <div>
-                <button className="text-white bg-primary px-[46px] py-[13px] rounded-[100px] font-semibold mt-[20px]">
-                  Узнать больше о курсе
-                </button>
-              </div>
-            </div>
           </div>
         </div>
-        <AddReviewForm
-          courseId={selectedCourse.id}
-          onAddReview={handleAddReview}
-        />
       </div>
     );
   }
@@ -164,9 +190,9 @@ const Reviews = () => {
       <h1 className="text-[36px] font-semibold mt-[10px]">Отзывы о курсах</h1>
       <p>Оценки качества курсов от пользователей.</p>
       <div className="grid grid-cols-3 gap-[20px] mt-[30px]">
-        {reviews.map((course, index) => (
+        {courses.map((course) => (
           <div
-            key={index}
+            key={course.id}
             className="flex border-[#F0F0F0] border-[1px] rounded-[5px] px-[20px] py-[20px]"
           >
             <img
@@ -178,7 +204,7 @@ const Reviews = () => {
               <p className="font-semibold">{course.title}</p>
               <button
                 className="text-white bg-primary px-[46px] py-[13px] rounded-[100px] font-semibold"
-                onClick={() => handleViewReviews({ ...course, id: index })}
+                onClick={() => handleViewReviews(course)}
               >
                 Просмотр отзывов
               </button>

@@ -5,7 +5,6 @@ const AddReviewForm = ({ courseId, onAddReview }) => {
   const [formData, setFormData] = useState({
     title: "",
     text: "",
-    author: "",
     rating: 5,
   });
 
@@ -26,7 +25,6 @@ const AddReviewForm = ({ courseId, onAddReview }) => {
     setFormData({
       title: "",
       text: "",
-      author: "",
       rating: 5,
     });
   };
@@ -34,7 +32,7 @@ const AddReviewForm = ({ courseId, onAddReview }) => {
   return (
     <form
       onSubmit={handleSubmit}
-      className="max-w-md mx-auto bg-white p-8 rounded shadow-md"
+      className="max-w-[600px] bg-[#F6F7FF] p-8 rounded shadow-md"
     >
       <h2 className="text-2xl font-bold mb-4">Добавить отзыв</h2>
       <div className="mb-4">
@@ -52,16 +50,6 @@ const AddReviewForm = ({ courseId, onAddReview }) => {
         <textarea
           name="text"
           value={formData.text}
-          onChange={handleChange}
-          className="w-full px-3 py-2 border rounded"
-        />
-      </div>
-      <div className="mb-4">
-        <label className="block text-gray-700">Автор</label>
-        <input
-          type="text"
-          name="author"
-          value={formData.author}
           onChange={handleChange}
           className="w-full px-3 py-2 border rounded"
         />

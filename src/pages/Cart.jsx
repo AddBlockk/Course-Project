@@ -1,17 +1,39 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { removeFromCart, purchaseCourse } from "../redux/actions";
 import Swal from "sweetalert2";
+import { auth } from "../firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
 
 const Cart = () => {
   const cart = useSelector((state) => state.cart);
   const dispatch = useDispatch();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Проверка состояния авторизации пользователя
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        navigate("/login");
+      } else {
+        setIsAuthenticated(true);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [navigate]);
 
   const handleRemoveFromCart = (courseTitle) => {
     dispatch(removeFromCart(courseTitle));
   };
 
   const handlePurchase = (course) => {
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
+    }
     dispatch(purchaseCourse(course));
     dispatch(removeFromCart(course.title));
     Swal.fire(
@@ -20,6 +42,10 @@ const Cart = () => {
       "success"
     );
   };
+
+  if (!isAuthenticated) {
+    return null; // или можно показать загрузку или сообщение об ошибке
+  }
 
   return (
     <div className="p-8">

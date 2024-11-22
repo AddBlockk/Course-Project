@@ -1,6 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "../components/Sidebar";
 import AllCourses from "../components/AllCourses";
+import { auth } from "../firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
 
 const CourseCatalog = () => {
   const [sortCriteria, setSortCriteria] = useState(null);
@@ -13,6 +16,17 @@ const CourseCatalog = () => {
     internshipAvailable: false,
     certificateAvailable: false,
   });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Проверка состояния авторизации пользователя
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setIsAuthenticated(!!user);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const handleSort = (criteria) => {
     const newSortOrder = {
@@ -110,6 +124,8 @@ const CourseCatalog = () => {
             sortCriteria={sortCriteria}
             sortOrder={sortOrder[sortCriteria]}
             filters={filters}
+            isAuthenticated={isAuthenticated}
+            navigate={navigate}
           />
         </div>
       </div>

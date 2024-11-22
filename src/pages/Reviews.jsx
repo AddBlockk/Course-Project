@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import reviewsData from "../reviews.json";
 import { db } from "../firebase";
 import {
@@ -35,37 +35,42 @@ const Reviews = () => {
         timestamp: serverTimestamp(),
       });
       Swal.fire("Успешно", "Отзыв успешно добавлен", "success");
-      // Обновите состояние отзывов, если необходимо
       fetchReviews();
     } catch (error) {
+      console.error("Error adding review:", error);
       Swal.fire("Ошибка", error.message, "error");
     }
   };
 
-  const fetchReviews = async () => {
+  const fetchReviews = useCallback(async () => {
     if (!selectedCourse) return;
     const reviewsCollection = collection(db, "reviews");
     const q = query(
       reviewsCollection,
       where("courseId", "==", selectedCourse.id)
     );
-    const querySnapshot = await getDocs(q);
-    const reviewsData = querySnapshot.docs.map((doc) => doc.data());
-    console.log("Fetched reviews:", reviewsData); // Добавьте это для отладки
-    setReviews((prevReviews) =>
-      prevReviews.map((course) =>
-        course.id === selectedCourse.id
-          ? { ...course, reviews: [...course.reviews, ...reviewsData] }
-          : course
-      )
-    );
-  };
+    try {
+      const querySnapshot = await getDocs(q);
+      const reviewsData = querySnapshot.docs.map((doc) => doc.data());
+      console.log("Fetched reviews:", reviewsData); // Добавьте это для отладки
+      setReviews((prevReviews) =>
+        prevReviews.map((course) =>
+          course.id === selectedCourse.id
+            ? { ...course, reviews: [...course.reviews, ...reviewsData] }
+            : course
+        )
+      );
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      Swal.fire("Ошибка", "Не удалось загрузить отзывы", "error");
+    }
+  }, [selectedCourse]);
 
   useEffect(() => {
     if (selectedCourse) {
       fetchReviews();
     }
-  }, [selectedCourse]);
+  }, [selectedCourse, fetchReviews]);
 
   if (selectedCourse) {
     return (
@@ -159,7 +164,7 @@ const Reviews = () => {
       <h1 className="text-[36px] font-semibold mt-[10px]">Отзывы о курсах</h1>
       <p>Оценки качества курсов от пользователей.</p>
       <div className="grid grid-cols-3 gap-[20px] mt-[30px]">
-        {reviewsData.map((course, index) => (
+        {reviews.map((course, index) => (
           <div
             key={index}
             className="flex border-[#F0F0F0] border-[1px] rounded-[5px] px-[20px] py-[20px]"

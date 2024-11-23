@@ -4,7 +4,7 @@ import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import Swal from "sweetalert2";
 import { useDispatch } from "react-redux";
 import { setUser } from "../redux/userSlice";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom"; // Import useNavigate
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
@@ -14,6 +14,7 @@ const RegisterPage = () => {
     confirmPassword: "",
   });
   const dispatch = useDispatch();
+  const navigate = useNavigate(); // Initialize navigate
 
   const handleChange = (e) => {
     setFormData({
@@ -37,7 +38,11 @@ const RegisterPage = () => {
       );
       await updateProfile(userCredential.user, { displayName: formData.name });
       dispatch(setUser({ name: formData.name, email: formData.email }));
-      Swal.fire("Успешно", "Вы успешно зарегистрировались", "success");
+      Swal.fire("Успешно", "Вы успешно зарегистрировались", "success").then(
+        () => {
+          navigate("/"); // Redirect to homepage
+        }
+      );
     } catch (error) {
       Swal.fire("Ошибка", error.message, "error");
     }
